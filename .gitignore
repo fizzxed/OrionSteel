@@ -4,6 +4,7 @@
 *.so
 
 # Distribution / packaging
+.idea/
 .Python
 env/
 build/
