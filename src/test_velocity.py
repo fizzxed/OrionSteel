@@ -1,9 +1,16 @@
-import os, sys, inspect
+import os, sys, inspect, pyglet
 src_dir = os.path.dirname(inspect.getfile(inspect.currentframe()))
 arch_dir = '../lib/x64' if sys.maxsize > 2**32 else '../lib/x86'
 sys.path.insert(0, os.path.abspath(os.path.join(src_dir, arch_dir)))
 
 import Leap, sys, thread, time
+
+snare_sound = pyglet.media.load("..\sound\E-Mu-Proteus-FX-Wacky-Snare.wav", streaming=False)
+
+hihat_sound = pyglet.media.load("..\sound\Closed-Hi-Hat-1.wav", streaming=False)
+
+bass_sound = pyglet.media.load("..\sound\Bass-Drum-1 (1).wav", streaming=False)
+
 
 class SampleListener(Leap.Listener):
 	def on_init(self, controller):
@@ -32,7 +39,10 @@ class SampleListener(Leap.Listener):
 				self.vel[0] = self.vel[1]
 				self.vel[1] = hand.palm_velocity[1]
 				if (self.vel[0] > 0 and self.vel[1] < 0):
-					print hand_name
+					if hand.is_left:
+						snare_sound.play()
+					else:
+						hihat_sound.play() 
 					print self.count
 					self.count = self.count + 1
 
