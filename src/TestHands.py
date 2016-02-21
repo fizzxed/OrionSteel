@@ -15,7 +15,8 @@ def mid_vector(VectorA, VectorB):
 class DrumkitListen(Leap.Listener):
     note_kick = 36
     note_snare = 40
-    VELOCITY_THRESHOLD = -600
+    note_hihat = 46
+    VELOCITY_THRESHOLD = -400
     MULTISAMPLE_THRESHOLD = 0.5
     NOTE_HOLD = 40000
     play_audio = False # if audio has been initialized
@@ -87,7 +88,9 @@ class DrumkitListen(Leap.Listener):
 
                         # WE CAN CHANGE THIS FOR MORE STUFF
                         # we determine what note is played based on coords
-                        if hand.palm_position.x > 0:
+                        if hand.palm_position.z < 0:
+                            beat['note'] = self.note_hihat
+                        elif hand.palm_position.x > 0:
                             beat['note'] = self.note_kick
                         else:
                             beat['note'] = self.note_snare
@@ -117,6 +120,7 @@ class DrumkitListen(Leap.Listener):
         # We want to say how long we have held the note, so we timestamp from the frame
         beat['timestamp'] = hand.frame.timestamp
 
+
         # Now we want to find out the actual velocity
         # math to map to 0-127 taken from stocyr at github
         velocity = - beat['velocity'] - 500.0
@@ -133,7 +137,7 @@ class DrumkitListen(Leap.Listener):
             multisample = 1
             velocity -= self.MULTISAMPLE_THRESHOLD/3
             velocity /= (1 - self.MULTISAMPLE_THRESHOLD/3)
-        self.sounds[beat['note']][multisample].set_volume(velocity ** 0.5)
+        self.sounds[beat['note']][multisample].set_volume(velocity ** 0.2)
         self.sounds[beat['note']][multisample].play()
 
         # register that we're playing the note
@@ -148,8 +152,9 @@ class DrumkitListen(Leap.Listener):
         pygame.mixer.init()
         pygame.init()
         # These are the lists of sounds currently
-        self.sounds[self.note_snare] = (pygame.mixer.Sound('../sound/Snare_soft.ogg'), pygame.mixer.Sound('../sound.Snare_hard.ogg'))
-        self.sounds[self.note_kick] = (pygame.mixer.Sound('../sound/Kick_soft.ogg'), pygame.mixer.Sound('../sound/Kick_hard.ogg'))
+        self.sounds[self.note_snare] = (pygame.mixer.Sound('../sound/pearlkit-snare1.wav'), pygame.mixer.Sound('../sound/pearlkit-snare1.wav'))
+        self.sounds[self.note_kick] = (pygame.mixer.Sound('../sound/pearlkit-kick.wav'), pygame.mixer.Sound('../sound/pearlkit-kick.wav'))
+        self.sounds[self.note_hihat] = (pygame.mixer.Sound('../sound/pearlkit-hihat.wav'), pygame.mixer.Sound('../sound/pearlkit-hihatO.wav'))
 
 
 def main():
