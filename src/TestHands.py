@@ -5,6 +5,7 @@ arch_dir = '../lib/x64' if sys.maxsize > 2**32 else '../lib/x86'
 sys.path.insert(0, os.path.abspath(os.path.join(src_dir, arch_dir)))
 
 import Leap, collections, pygame
+from collections import defaultdict
 #import pyglet
 
 def mid_vector(VectorA, VectorB):
@@ -32,22 +33,22 @@ class DrumkitListen(Leap.Listener):
         # Get the immediate frame from controller
         frame = controller.frame()
 
-        # Now we want to only iterate through if pointables exist
-        # frame.pointables returns a list of (possibly empty) pointables
-        if len(frame.pointables) != 0 and self.play_audio == True:
-            for pointableX in frame.pointables:
+        # Now we want to only iterate through if hands exist
+        # frame.hands returns a list of (possibly empty) pointables
+        if len(frame.hands) != 0 and self.play_audio == True:
+            for hand in frame.hands:
                 # If any pointables exceed the threshold, and are not on
                 # the list, add them to list of trackerDict, which is
                 # a list of dictionaries mapping Position names to their values
                 # Note tip_velocity returns a vector, for now we
                 # only care about the y direction (into the LEAP)
-                if pointableX.tip_velocity.y < self.VELOCITY_THRESHOLD and pointableX.id not in self.trackerDict:
-                    # Another note: we store references to the pointableX object
-                    # through the id of the pointable object as an index
-                    self.trackerDict[pointableX.id] = collections.defaultdict(dict)
+                if hand.palm_velocity.y < self.VELOCITY_THRESHOLD and hand.id not in self.trackerDict:
+                    # Another note: we store references to the hand object
+                    # through the id of the hand object as an index
+                    self.trackerDict[hand.id] = defaultdict(dict)
                     # Now to store the position tuple? in the dictionary
                     # we could probably come up with a better method for doing this, idk
-                    self.trackerDict[pointableX.id]['PositionA'] = pointableX.tip_position
+                    self.trackerDict[hand.id]['PositionA'] = hand.palm_position
 
         # Now that we have added all things to the list, we must go
         # through the list and do stuff with them (ie. play sounds)
@@ -67,26 +68,26 @@ class DrumkitListen(Leap.Listener):
                     trash.append(beat_id)
             # Note has not been played yet, so we can process it as new
             else:
-                pointableX = frame.pointable(beat_id) #access most recent frame
+                hand = frame.hand(beat_id) #access most recent frame
                 #access second most recent frame
-                pointableX_prev = controller.frame(1).pointable(beat_id)
+                hand_prev = controller.frame(1).hand(beat_id)
 
                 # Only proceed if current frame is valid since
                 # it may give us an invalid pointable
-                if pointableX.is_valid:
+                if hand.is_valid:
                     # only play if 2nd to most recent pointable is valid
                     # and if velocity is decreasing (accelaration is negative)
                     # since we are playing with LEAP below us, we need > -V
-                    if (pointableX_prev.is_valid and pointableX.tip_velocity.y - 
-                        pointableX_prev.tip_velocity.y > -self.VELOCITY_THRESHOLD / 3):
+                    if (hand_prev.is_valid and hand.palm_velocity.y - 
+                        hand_prev.palm_velocity.y > -self.VELOCITY_THRESHOLD / 3):
                         # we want the max velocity, and since we the 2nd to last is bigger
                         # than the most recent one, we're assuming third derivative is 0
                         # so 2nd to last is max velocity
-                        beat['velocity'] = pointableX_prev.tip_velocity.y
+                        beat['velocity'] = hand_prev.palm_velocity.y
 
                         # WE CAN CHANGE THIS FOR MORE STUFF
                         # we determine what note is played based on coords
-                        if pointableX.tip_position.x > 0:
+                        if hand.palm_position.x > 0:
                             beat['note'] = self.note_kick
                         else:
                             beat['note'] = self.note_snare
@@ -99,11 +100,11 @@ class DrumkitListen(Leap.Listener):
                         else:
                             # we want to store the hit position for optional stuff later on
                             # maybe, we could delete this if we have no use
-                            beat['PositionB'] = pointableX.tip_position
+                            beat['PositionB'] = hand.palm_position
                             beat['Position'] = mid_vector(beat['PositionA'], beat['PositionB'])
                             
                             # Pass to the play_sound method, so we can module-ize this
-                            self.play_sound(pointableX, beat)
+                            self.play_sound(hand, beat)
                 else:
                     # if not a valid pointable, we can just delete the thingy
                     trash.append(beat_id)
@@ -112,14 +113,14 @@ class DrumkitListen(Leap.Listener):
             del self.trackerDict[beat_id]
 
     # REQUIRES init_audio first
-    def play_sound(self, pointableX, beat):
+    def play_sound(self, hand, beat):
         # We want to say how long we have held the note, so we timestamp from the frame
-        beat['timestamp'] = pointableX.frame.timestamp
+        beat['timestamp'] = hand.frame.timestamp
 
         # Now we want to find out the actual velocity
         # math to map to 0-127 taken from stocyr at github
         velocity = - beat['velocity'] - 500.0
-        velocity /= 6000.0
+        velocity /= 5000.0
         velocity = min(velocity, 1.0)
         velocity = max(0.0, velocity)
         velocity = math.pow(velocity, 0.4)
@@ -132,7 +133,7 @@ class DrumkitListen(Leap.Listener):
             multisample = 1
             velocity -= self.MULTISAMPLE_THRESHOLD/3
             velocity /= (1 - self.MULTISAMPLE_THRESHOLD/3)
-        self.sounds[beat['note']][multisample].set_volume(velocity)
+        self.sounds[beat['note']][multisample].set_volume(velocity ** 0.5)
         self.sounds[beat['note']][multisample].play()
 
         # register that we're playing the note
